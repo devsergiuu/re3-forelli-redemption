@@ -40,9 +40,35 @@ if(NOT ${PROJECT}_AUDIO IN_LIST ${PROJECT}_AUDIOS)
     message(FATAL_ERROR "Illegal ${PROJECT}_AUDIO=${${PROJECT}_AUDIO}")
 endif()
 
+# ------------------------------------------------------------------
+# iOS: vendor SDL2 from source (static build), same scheme as upstream
+# ------------------------------------------------------------------
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    add_compile_definitions(__IPHONEOS__)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "" FORCE)
+    set(FORCE_STATIC_VCRT OFF CACHE BOOL "" FORCE)
+    add_subdirectory(vendor/sdl2/SDL2)
+    if(TARGET SDL2-static)
+        target_compile_options(SDL2-static PRIVATE -Wno-error=declaration-after-statement)
+        # alias the vendored target under the name FindSDL2.cmake expects,
+        # and mark it found so librw's find_package(SKD2) uses it
+        add_library(SDL2::SDL2 ALIAS SDL2-static)
+        set(SDL2_FOUND TRUE CACHE INTERNAL "")
+    endif()
+    set(CMAKE_MACOSX_BUNDLE ON CACHE BOOL "" FORCE)
+endif()
+
 option(${PROJECT}_VENDORED_LIBRW "Use vendored librw" ON)
 if(${PROJECT}_VENDORED_LIBRW)
-    add_subdirectory(vendor/librw)
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        # iOS build uses a separate, pinned librw checkout (populated by the
+        # ios.yml workflow) -- vendor/librw stays untouched for Android.
+        add_subdirectory(vendor/librw-ios)
+    else()
+        add_subdirectory(vendor/librw)
+    endif()
 else()
     find_package(librw REQUIRED)
 endif()

@@ -1,0 +1,63 @@
+name: iOS build (re3)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, iosipa ]
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch ios-cmake toolchain
+        run: |
+          curl -L -o ios.toolchain.cmake https://raw.githubusercontent.com/leetal/ios-cmake/master/ios.toolchain.cmake
+
+      - name: Prepare pinned librw for iOS (separate dir, Android untouched)
+        run: |
+          git clone --quiet https://github.com/aap/librw.git vendor/librw-ios
+          git -C vendor/librw-ios checkout --quiet 0151d72140a04f1a7e42819b7649f4c035c84ad0
+          git -C vendor/librw-ios apply --whitespace=nowarn $GITHUB_WORKSPACE/ios/librw-ios.patch
+
+      - name: Generate shader includes
+        run: |
+          cd src/extras/shaders
+          mkdir -p obj
+          for s in *.frag *.vert; do sh makeinc_glsl.sh "$s"; done
+
+      - name: Configure
+        run: |
+          cmake -B build-ios -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=ios.toolchain.cmake \
+            -DPLATFORM=OS64 \
+            -DDEPLOYMENT_TARGET=12.0 \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DRE3_AUDIO=NONE \
+            -DRE3_INSTALL=ON \
+            -DMACOSX_BUNDLE_GUI_IDENTIFIER=com.re3.game \
+            -DMACOSX_BUNDLE_BUNDLE_NAME=re3 \
+            -DMACOSX_BUNDLE_INFO_PLIST=${{ github.workspace }}/ios/Info.plist.in
+
+      - name: Build
+        run: |
+          cmake --build build-ios -j $(sysctl -n hw.ncpu)
+
+      - name: Assemble IPA
+        run: |
+          APP=$(find build-ios -name "*.app" -type d | head -1)
+          echo "APP: $APP"
+          cp -v gamefiles/* "$APP/" 2>/dev/null || true
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -r re3-unsigned.ipa Payload
+          ls -la *.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: re3-ios-unsigned-ipa
+          path: re3-unsigned.ipa

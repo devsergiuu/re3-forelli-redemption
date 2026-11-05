@@ -20,6 +20,10 @@ header_directories(${PROJECT}_INCLUDES)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/extras/GitSHA1.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/extras/GitSHA1.cpp" @ONLY)
 list(APPEND ${PROJECT}_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/extras/GitSHA1.cpp")
 
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    list(FILTER ${PROJECT}_SOURCES EXCLUDE REGEX "/skel/glfw/|/skel/win/|/skel/android/|/skel/sdl2/|/audio/eax/")
+endif()
+
 if(NOT ANDROID)
     add_executable(${EXECUTABLE} WIN32 ${${PROJECT}_SOURCES})
 elseif(ANDROID)
@@ -110,10 +114,14 @@ elseif(${PROJECT}_AUDIO STREQUAL "MSS")
     target_link_libraries(${EXECUTABLE} PRIVATE MilesSDK::MilesSDK)
 endif()
 
-find_package(mpg123 REQUIRED)
-target_link_libraries(${EXECUTABLE} PRIVATE
-    MPG123::libmpg123
-)
+if(NOT ${PROJECT}_AUDIO STREQUAL "NONE")
+    find_package(mpg123 REQUIRED)
+    target_link_libraries(${EXECUTABLE} PRIVATE
+        MPG123::libmpg123
+    )
+else()
+    message(STATUS "mpg123 skipped (audio=NONE)")
+endif()
 if(${PROJECT}_WITH_OPUS)
     find_package(opusfile REQUIRED)
     target_link_libraries(${EXECUTABLE} PRIVATE
