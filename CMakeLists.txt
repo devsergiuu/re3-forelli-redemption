@@ -22,9 +22,9 @@ if(NOT COMMAND re3_platform_target)
 endif()
 
 if(WIN32)
-    set(${PROJECT}_AUDIOS "OAL" "MSS")
+    set(${PROJECT}_AUDIOS "OAL" "MSS" "NONE")
 else()
-    set(${PROJECT}_AUDIOS "OAL")
+    set(${PROJECT}_AUDIOS "OAL" "NONE")
 endif()
 
 set(${PROJECT}_AUDIO "OAL" CACHE STRING "Audio")
